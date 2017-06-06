@@ -28,7 +28,7 @@ let rec isval ctx t = match t with
 
   | _ -> false
 
-let isrange ctx t = match t with
+let isrange t = match t with
     TmRange(_,_,_,_) -> true
   | _ -> false
 
@@ -47,6 +47,21 @@ let updatestore store n v =
 let shiftstore i store = List.map (fun t -> termShift i t) store 
 
 exception NoRuleApplies
+
+
+let isvalid f1 f2 = true
+let addrange r1 r2 c = r1
+let subrange r1 r2 c = r1
+let mulrange r1 r2 c = r1
+let invrange r c = r
+let todenormal r = r
+let checkinv r = true
+let upfrac f c = f
+let downfrac f c = f
+let maxlog r = 0
+
+let k = 1024 
+
 
 let rec eval1 ctx store t = match t with
     TmApp(fi,TmAbs(_,x,tyT11,t12),v2) when isval ctx v2 ->
@@ -165,7 +180,7 @@ let rec eval1 ctx store t = match t with
   (* New evaluation rules *)
   (* E-Div *)
   | TmDiv(fi, t1, t2, c) -> TmMul(fi, t1, TmInv(fi, t2, c), c), store
-  (* E-Sdd *)
+  (* E-Add *)
   | TmAdd(fi, t1, t2, c) when not (isrange t1) ->
       let t1', store' = eval1 ctx store t1 in
       TmAdd(fi, t1', t2, c), store'
@@ -178,7 +193,7 @@ let rec eval1 ctx store t = match t with
       match r with
       TmRange(fi, f1, f2, ft) ->
         if isvalid f1 f2 then r, store
-        else if (c >= K) || (c<=-K) then todenormal r, store
+        else if (c >= k) then todenormal r, store
         else TmAdd(fi, TmSetprecision(fi, r1, c*2), TmSetprecision(fi, r2, c*2), c*2), store
       | _ -> error fi "addrange error"
       )
@@ -195,9 +210,9 @@ let rec eval1 ctx store t = match t with
       match r with
       TmRange(fi, f1, f2, ft) ->
         if isvalid f1 f2 then r, store
-        else if (c >= K) || (c<=-K) then todenormal r, store
+        else if (c >= k)then todenormal r, store
         else TmSub(fi, TmSetprecision(fi, r1, c*2), TmSetprecision(fi, r2, c*2), c*2), store
-      | _ -> error fi "addrange error"
+      | _ -> error fi "subrange error"
       )
   (* E-Mul *)
   | TmMul(fi, t1, t2, c) when not (isrange t1) ->
@@ -212,9 +227,9 @@ let rec eval1 ctx store t = match t with
       match r with
       TmRange(fi, f1, f2, ft) ->
         if isvalid f1 f2 then r, store
-        else if (c >= K) || (c<=-K) then todenormal r, store
+        else if (c >= k) then todenormal r, store
         else TmMul(fi, TmSetprecision(fi, r1, c*2), TmSetprecision(fi, r2, c*2), c*2), store
-      | _ -> error fi "addrange error"
+      | _ -> error fi "mulrange error"
       )
   (* E-Inv *)  
   | TmInv(fi, t1, c) when not (isrange t1) ->
@@ -222,7 +237,7 @@ let rec eval1 ctx store t = match t with
       TmInv(fi, t1', c), store'
   | TmInv(fi, r1, c) ->
       if checkinv r1 then invrange r1 c, store
-      else if (c>=K) || (c<=-K) then invrange (todenormal r1), store
+      else if (c>=k) then invrange (todenormal r1) c, store
       else TmInv(fi, TmSetprecision(fi, r1, c*2), c*2), store
   (* E-Setprecision *)
   | TmSetprecision(fi, t1, c) when not (isrange t1) ->
@@ -234,17 +249,56 @@ let rec eval1 ctx store t = match t with
         TmRange(fi', f1, f2, ft) ->
             (
                 match ft with
-                  TmAdd(fi, r1, r2, _) -> 
-                      let r1', store' = eval1 ctx store TmSetprecision(fi, r1, c+1) in
-                      let r2', store'' = eval1 ctx store' TmSetprecision(fi, r2, c+1) in
-                      addrange r1' r2' c+1, store''
-
-
-            )
+                  TmUnit(fi) -> r1, store
+                  | TmAdd(fi, r1, r2, _) -> 
+                      let p1 = TmSetprecision(fi, r1, c+1) in
+                      let r1', store' = eval1 ctx store p1 in
+                      let p2 = TmSetprecision(fi, r2, c+1) in
+                      let r2', store'' = eval1 ctx store' p2 in
+                      addrange r1' r2' (c+1), store''
+                  | TmSub(fi, r1, r2, _) -> 
+                      let p1 = TmSetprecision(fi, r1, c+1) in
+                      let r1', store' = eval1 ctx store p1 in
+                      let p2 = TmSetprecision(fi, r2, c+1) in
+                      let r2', store'' = eval1 ctx store' p2 in
+                      subrange r1' r2' (c+1), store''
+                  | TmMul(fi, r1, r2, _) -> 
+                      let p1 = TmSetprecision(fi, r1, c+1+(maxlog r2)) in
+                      let r1', store' = eval1 ctx store p1 in
+                      let p2 = TmSetprecision(fi, r2, c+1+(maxlog r1)) in
+                      let r2', store'' = eval1 ctx store' p2 in
+                      mulrange r1' r2' (c+1), store''
+                  | TmInv(fi, r1, _) ->
+                      let p1 = TmSetprecision(fi, r1, max (c+1+2*(maxlog r1)) 0) in  
+                      let r1', store' = eval1 ctx store p1 in
+                      invrange r1' (c+1), store'
+                  | _ -> error fi "range from invalid"
+            )    
         | _ -> error fi "invalid range"
       )
-
-
+  (* E-Round/Up/Down *)
+  | TmRound(fi, t1, c) when not (isrange t1) ->
+      let t1', store' = eval1 ctx store t1 in
+      TmRound(fi, t1', c), store'
+  | TmRound(fi, r1, c) -> 
+          (match r1 with
+          TmRange(fi, f1, f2, _) -> f1, store
+          | _ -> error fi "not a range")
+  | TmUp(fi, t1, c) when not (isrange t1) ->
+      let t1', store' = eval1 ctx store t1 in
+      TmUp(fi, t1', c), store'
+  | TmUp(fi, r1, c) -> 
+          (match r1 with
+          TmRange(fi, f1, f2, _) -> upfrac f2 c, store
+          | _ -> error fi "not a range")
+  | TmDown(fi, t1, c) when not (isrange t1) ->
+      let t1', store' = eval1 ctx store t1 in
+      TmDown(fi, t1', c), store'
+  | TmDown(fi, r1, c) -> 
+          (match r1 with
+          TmRange(fi, f1, f2, _) -> downfrac f1 c, store
+          | _ -> error fi "not a range")
+  
 
   | _ -> 
       raise NoRuleApplies
@@ -608,7 +662,7 @@ let rec typeof ctx t =
       let isrange ty = (tyeqv ctx ty TyRange) in
       if (isrange ty1) && (isrange ty2) then TyRange
       else error fi "argument of an operator is not a range"
-  | TmInv(fi,t2,_) ->
+  | TmInv(fi,t1,_) ->
       let ty1 = typeof ctx t1 in
       let isrange ty = (tyeqv ctx ty TyRange) in
       if (isrange ty1) then TyRange
@@ -622,19 +676,19 @@ let rec typeof ctx t =
       else error fi "argument of range is invalid"
    | TmSetprecision(fi, t1, _) ->
       let ty1 = typeof ctx t1 in
-      if (tyeqv ctx ty1 TyRange) -> TyRange
+      if (tyeqv ctx ty1 TyRange) then TyRange
       else error fi "argument of setprecision is not a range"
    | TmRound(fi, t1, _) ->
       let ty1 = typeof ctx t1 in 
-      if (tyeqv ctx ty1 TyRange) || (tyeqv ctx ty1 TyFrac) -> TyFrac
+      if (tyeqv ctx ty1 TyRange) || (tyeqv ctx ty1 TyFrac) then TyFrac
       else error fi "argument of round is invalid"
    | TmUp(fi, t1, _) ->
       let ty1 = typeof ctx t1 in
-      if (tyeqv ctx ty1 TyRange) -> TyRange
+      if (tyeqv ctx ty1 TyRange) then TyFrac
       else error fi "argument of up is not a range"
    | TmDown(fi, t1, _) ->
       let ty1 = typeof ctx t1 in
-      if (tyeqv ctx ty1 TyRange) -> TyRange
+      if (tyeqv ctx ty1 TyRange) then TyFrac
       else error fi "argument of down is not a range"
 
 

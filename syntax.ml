@@ -139,6 +139,8 @@ let tymap onvar c tyT =
   | TySource(tyT1) -> TySource(walk c tyT1)
   | TySink(tyT1) -> TySink(walk c tyT1)
   | TyNat -> TyNat
+  | TyFrac -> TyFrac
+  | TyRange -> TyRange
   in walk c tyT
 
 let tmmap onvar ontype c t = 
@@ -174,6 +176,19 @@ let tmmap onvar ontype c t =
   | TmSucc(fi,t1)   -> TmSucc(fi, walk c t1)
   | TmPred(fi,t1)   -> TmPred(fi, walk c t1)
   | TmIsZero(fi,t1) -> TmIsZero(fi, walk c t1)
+  | TmFrac _ as t -> t
+  | TmDenormal _ as t -> t
+  | TmAdd(fi,t1,t2,e) -> TmAdd(fi, walk c t1, walk c t2, e)
+  | TmSub(fi,t1,t2,e) -> TmSub(fi, walk c t1, walk c t2, e)
+  | TmMul(fi,t1,t2,e) -> TmMul(fi, walk c t1, walk c t2, e)
+  | TmDiv(fi,t1,t2,e) -> TmDiv(fi, walk c t1, walk c t2, e)
+  | TmInv(fi,t1,e) -> TmInv(fi, walk c t1, e)
+  | TmRange(fi,t1,t2,t3) -> TmRange(fi, walk c t1, walk c t2, walk c t3)
+  | TmSetprecision(fi, t1, e) -> TmSetprecision(fi, walk c t1, e)
+  | TmRound(fi,t1,e) -> TmRound(fi, walk c t1, e)
+  | TmUp(fi,t1,e) -> TmUp(fi, walk c t1, e)
+  | TmDown(fi,t1,e) -> TmDown(fi, walk c t1, e)
+  
   in walk c t
 
 let typeShiftAbove d c tyT =
@@ -321,6 +336,11 @@ let small t =
     TmVar(_,_,_) -> true
   | _ -> false
 
+let isunit t =
+    match t with
+    TmUnit(_) -> true
+  | _ -> false
+
 let rec printty_Type outer ctx tyT = match tyT with
     TyRef(tyT) -> pr "Ref "; printty_AType false ctx tyT
   | TySource(tyT) -> pr "Source "; printty_AType false ctx tyT
@@ -433,6 +453,14 @@ let rec printtm_Term outer ctx t = match t with
        pr " := ";
        printtm_AppTerm false ctx t2;
        cbox()
+  | TmRange(_, t1, t2, t3) when (not (isunit t3)) ->
+          pr "Range( ";
+          printtm_Term false ctx t1;
+          pr ", ";
+          printtm_Term false ctx t2;
+          pr ", ";
+          printtm_Term false ctx t3;
+          pr ") "
   | t -> printtm_AppTerm outer ctx t
 
 and printtm_AppTerm outer ctx t = match t with
@@ -517,6 +545,21 @@ and printtm_ATerm outer ctx t = match t with
        | TmSucc(_,s) -> f (n+1) s
        | _ -> (pr "(succ "; printtm_ATerm false ctx t1; pr ")")
      in f 1 t1
+  | TmFrac(_,fh,pw,l,ar) ->
+       if (fh=0) then pr "-"; 
+       if (pw>=l) then pr "0";
+       for i = pw to (l-1) do print_int ar.(l-1-i+pw); done;
+       pr ".";
+       if (pw>=l) then (for i = l to (pw-1) do pr "0"; done; for i = 0 to (l-1) do print_int ar.(l-1-i); done;)
+       else for i = 0 to (pw-1) do print_int ar.(pw-1-i); done;
+  | TmDenormal(_,o) ->
+       if (o=0) then pr "nan"
+       else if (o=1) then pr "inf"
+       else pr "-inf"
+  | TmRange(_,r1,r2,TmUnit(_)) ->
+       printtm_ATerm false ctx r1
+
+
   | t -> pr "("; printtm_Term outer ctx t; pr ")"
 
 let printtm ctx t = printtm_Term true ctx t 

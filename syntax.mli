@@ -20,6 +20,10 @@ type ty =
   | TySource of ty
   | TySink of ty
   | TyNat
+  
+  (* New types *)
+  | TyFrac
+  | TyRange
 
 type term =
     TmVar of info * int * int
@@ -48,6 +52,21 @@ type term =
   | TmPred of info * term
   | TmIsZero of info * term
   | TmInert of info * ty
+
+  (* New terms *)
+  | TmFrac of info * int * int * int * int array
+  | TmDenormal of info * int
+  | TmAdd of info * term * term * int
+  | TmSub of info * term * term * int
+  | TmMul of info * term * term * int
+  | TmDiv of info * term * term * int
+  | TmInv of info * term * int
+  | TmRange of info * term * term * term
+  | TmSetprecision of info * term * int
+  | TmRound of info * term * int
+  | TmUp of info * term * int
+  | TmDown of info * term * int
+
 
 type binding =
     NameBind 

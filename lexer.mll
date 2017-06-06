@@ -43,6 +43,17 @@ let reservedWords = [
   ("Sink", fun i -> Parser.SSINK i);
   ("Nat", fun i -> Parser.NAT i);
   
+  ("add", fun i -> Parser.ADD i);
+  ("sub", fun i -> Parser.SUB i);
+  ("mul", fun i -> Parser.MUL i);
+  ("div", fun i -> Parser.DIV i);
+  ("inv", fun i -> Parser.INV i);
+  ("setprecision", fun i -> Parser.SETPRECISION i);
+  ("round", fun i -> Parser.ROUND i);
+  ("up", fun i -> Parser.UP i);
+  ("down", fun i -> Parser.DOWN i);
+
+  
   (* Symbols *)
   ("_", fun i -> Parser.USCORE i);
   ("'", fun i -> Parser.APOSTROPHE i);
@@ -167,7 +178,7 @@ rule main = parse
     { Parser.INTV{i=info lexbuf; v=int_of_string (text lexbuf)} }
 
 | ['0'-'9']+ '.' ['0'-'9']+
-    { Parser.FLOATV{i=info lexbuf; v=float_of_string (text lexbuf)} }
+    { Parser.FRACV{i=info lexbuf; v=text lexbuf} }
 
 | ['A'-'Z' 'a'-'z' '_']
   ['A'-'Z' 'a'-'z' '_' '0'-'9' '\'']*

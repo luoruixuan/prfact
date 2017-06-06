@@ -54,12 +54,29 @@ open Syntax
 %token <Support.Error.info> SSINK
 %token <Support.Error.info> NAT
 
+%token <Support.Error.info> ADD
+%token <Support.Error.info> SUB
+%token <Support.Error.info> MUL
+%token <Support.Error.info> DIV
+%token <Support.Error.info> INV
+%token <Support.Error.info> RANGE
+%token <Support.Error.info> SETPRECISION
+%token <Support.Error.info> ROUND
+%token <Support.Error.info> UP
+%token <Support.Error.info> DOWN
+%token <Support.Error.info> UFRAC
+%token <Support.Error.info> URANGE
+
+
+
 /* Identifier and constant value tokens */
 %token <string Support.Error.withinfo> UCID  /* uppercase-initial */
 %token <string Support.Error.withinfo> LCID  /* lowercase/symbolic-initial */
 %token <int Support.Error.withinfo> INTV
 %token <float Support.Error.withinfo> FLOATV
 %token <string Support.Error.withinfo> STRINGV
+
+%token <string Support.Error.withinfo> FRACV
 
 /* Symbolic tokens */
 %token <Support.Error.info> APOSTROPHE
@@ -99,6 +116,7 @@ open Syntax
 %token <Support.Error.info> TRIANGLE
 %token <Support.Error.info> USCORE
 %token <Support.Error.info> VBAR
+
 
 /* ---------------------------------------------------------------------- */
 /* The starting production of the generated parser is the syntactic class
@@ -191,6 +209,10 @@ AType :
       { fun ctx -> TyFloat }
   | NAT
       { fun ctx -> TyNat }
+  | UFRAC
+      { fun ctx -> TyFrac }
+  | URANGE
+      { fun ctx -> TyRange }
 
 TyBinder :
     /* empty */
@@ -257,6 +279,24 @@ AppTerm :
       { fun ctx -> TmPred($1, $2 ctx) }
   | ISZERO PathTerm
       { fun ctx -> TmIsZero($1, $2 ctx) }
+  | ADD PathTerm PathTerm
+      { fun ctx -> TmAdd($1, $2 ctx, $3 ctx, 8) }
+  | SUB PathTerm PathTerm
+      { fun ctx -> TmSub($1, $2 ctx, $3 ctx, 8) }
+  | MUL PathTerm PathTerm
+      { fun ctx -> TmMul($1, $2 ctx, $3 ctx, 8) }
+  | DIV PathTerm PathTerm
+      { fun ctx -> TmDiv($1, $2 ctx, $3 ctx, 8) }
+  | INV PathTerm
+      { fun ctx -> TmInv($1, $2 ctx, 8) }
+  | SETPRECISION PathTerm INTV
+      { fun ctx -> TmSetprecision($1, $2 ctx, $3.v) }
+  | ROUND PathTerm INTV
+      { fun ctx -> TmRound($1, $2 ctx, $3.v) }
+  | UP PathTerm INTV
+      { fun ctx -> TmUp($1, $2 ctx, $3.v) }
+  | DOWN PathTerm INTV
+      { fun ctx -> TmDown($1, $2 ctx, $3.v) }
 
 PathTerm :
     PathTerm DOT LCID
@@ -330,6 +370,26 @@ ATerm :
               0 -> TmZero($1.i)
             | n -> TmSucc($1.i, f (n-1))
           in f $1.v }
+
+  | FRACV
+      { fun ctx ->
+          let f s =
+            let l = String.length s in
+            let d = String.index s '.' in
+            let ints = String.concat "" [String.sub s 0 d; String.sub s (d+1) (l-d-1)] in
+            let w = ref 0 in
+            while (!w<(l-1) && ((String.get ints !w)='0')) do
+                w:=((!w)+1);
+            done;
+            if !w=(l-1) then let a = Array.make 1 0 in TmFrac($1.i, 1, 0, 1, a)
+            else let l'=l-1 - (!w) in
+            let a = Array.make l' 0 in
+            for i = 0 to (l'-1) do
+                a.(i) <- (int_of_char (String.get ints (l-2-i)) - 48)
+            done;
+            TmFrac($1.i, 1, l-1-d, l', a)
+          in f $1.v
+      }
 
 Fields :
     /* empty */

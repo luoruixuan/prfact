@@ -2,6 +2,7 @@ open Format
 open Syntax
 open Support.Error
 open Support.Pervasive
+open Frac
 
 (* ------------------------   EVALUATION  ------------------------ *)
 
@@ -50,7 +51,16 @@ exception NoRuleApplies
 
 
 let isvalid f1 f2 = true
-let addrange r1 r2 c = r1
+let addrange r1 r2 c = 
+    match r1 with
+    TmRange(fi, fl1, fr1, ft1) ->
+        (match r2 with
+        TmRange(fi, fl2, fr2, ft2) ->
+            let nl = bigadd fl1 fl2 in
+            let nr = bigadd fr1 fr2 in
+            TmRange(fi, nl, nr, TmAdd(fi, r1,r2,c))
+    | _ -> raise (Failure "Not a range"))
+    | _ -> raise (Failure "Not a range")
 let subrange r1 r2 c = r1
 let mulrange r1 r2 c = r1
 let invrange r c = r
@@ -178,6 +188,8 @@ let rec eval1 ctx store t = match t with
       let t1',store' = eval1 ctx store t1 in
       TmIsZero(fi, t1'), store'
   (* New evaluation rules *)
+  (* E-Frac *)
+  | TmFrac(fi,_,_,_,_) -> TmRange(fi,t,t,TmUnit(fi)), store
   (* E-Div *)
   | TmDiv(fi, t1, t2, c) -> TmMul(fi, t1, TmInv(fi, t2, c), c), store
   (* E-Add *)
@@ -641,30 +653,30 @@ let rec typeof ctx t =
   | TmAdd(fi,t1,t2,_) ->
       let ty1 = typeof ctx t1 in
       let ty2 = typeof ctx t2 in
-      let isrange ty = (tyeqv ctx ty TyRange) || (tyeqv ctx ty TyUnit) in
+      let isrange ty = (tyeqv ctx ty TyRange) || (tyeqv ctx ty TyFrac) in
       if (isrange ty1) && (isrange ty2) then TyRange
       else error fi "argument of an operator is not a range"
   | TmSub(fi,t1,t2,_) ->
       let ty1 = typeof ctx t1 in
       let ty2 = typeof ctx t2 in
-      let isrange ty = (tyeqv ctx ty TyRange) in
+      let isrange ty = (tyeqv ctx ty TyRange) || (tyeqv ctx ty TyFrac) in
       if (isrange ty1) && (isrange ty2) then TyRange
       else error fi "argument of an operator is not a range"
   | TmMul(fi,t1,t2,_) ->
       let ty1 = typeof ctx t1 in
       let ty2 = typeof ctx t2 in
-      let isrange ty = (tyeqv ctx ty TyRange) in
+      let isrange ty = (tyeqv ctx ty TyRange) || (tyeqv ctx ty TyFrac) in
       if (isrange ty1) && (isrange ty2) then TyRange
       else error fi "argument of an operator is not a range"
   | TmDiv(fi,t1,t2,_) ->
       let ty1 = typeof ctx t1 in
       let ty2 = typeof ctx t2 in
-      let isrange ty = (tyeqv ctx ty TyRange) in
+      let isrange ty = (tyeqv ctx ty TyRange) || (tyeqv ctx ty TyFrac) in
       if (isrange ty1) && (isrange ty2) then TyRange
       else error fi "argument of an operator is not a range"
   | TmInv(fi,t1,_) ->
       let ty1 = typeof ctx t1 in
-      let isrange ty = (tyeqv ctx ty TyRange) in
+      let isrange ty = (tyeqv ctx ty TyRange) || (tyeqv ctx ty TyFrac) in
       if (isrange ty1) then TyRange
       else error fi "argument of an operator is not a range"
   | TmRange(fi, t1, t2, t3) ->

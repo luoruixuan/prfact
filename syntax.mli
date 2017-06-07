@@ -62,10 +62,10 @@ type term =
   | TmDiv of info * term * term * int
   | TmInv of info * term * int
   | TmRange of info * term * term * term
-  | TmSetprecision of info * term * int
-  | TmRound of info * term * int
-  | TmUp of info * term * int
-  | TmDown of info * term * int
+  | TmSetprecision of info * term * term
+  | TmRound of info * term * term
+  | TmUp of info * term * term
+  | TmDown of info * term * term
   | TmLess of info * term * term
 
 

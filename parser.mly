@@ -292,14 +292,14 @@ AppTerm :
       { fun ctx -> TmInv($1, $2 ctx, 8) }
   | LESS PathTerm PathTerm
       { fun ctx -> TmLess($1, $2 ctx, $3 ctx) }
-  | SETPRECISION PathTerm INTV
-      { fun ctx -> TmSetprecision($1, $2 ctx, $3.v) }
-  | ROUND PathTerm INTV
-      { fun ctx -> TmRound($1, $2 ctx, $3.v) }
-  | UP PathTerm INTV
-      { fun ctx -> TmUp($1, $2 ctx, $3.v) }
-  | DOWN PathTerm INTV
-      { fun ctx -> TmDown($1, $2 ctx, $3.v) }
+  | SETPRECISION PathTerm PathTerm
+      { fun ctx -> TmSetprecision($1, $2 ctx, $3 ctx) }
+  | ROUND PathTerm PathTerm
+      { fun ctx -> TmRound($1, $2 ctx, $3 ctx) }
+  | UP PathTerm PathTerm
+      { fun ctx -> TmUp($1, $2 ctx, $3 ctx) }
+  | DOWN PathTerm PathTerm
+      { fun ctx -> TmDown($1, $2 ctx, $3 ctx) }
 
 PathTerm :
     PathTerm DOT LCID

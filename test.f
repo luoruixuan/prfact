@@ -73,9 +73,12 @@ add (div 243.5 293.203) (div 23333333.333 233.33);
 t0 = div 243.5 293.203;
 t1 = div 23333333.333 233.33;
 
-t2 = sub 666666.6666 554433.2211;
+t2 = sub 66666.6666 554433.2211;
+setprecision t2 8;
 t3 = add t0 t1;
+setprecision t3 8;
 t4 = mul t3 t2;
+setprecision t4 8;
 setprecision t0 15;
 setprecision t1 20;
 setprecision t2 4;

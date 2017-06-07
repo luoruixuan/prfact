@@ -37,9 +37,8 @@ match t1 with
 match t2 with
   TmFrac(fi, _, frcb, lenb, arrb) ->(
 let frcc = max frca frcb in
-let lenc = ref (lena - frca + (max frca frcb) + 1) in
+let lenc = ref (lena - frca + frcc + 1) in
 let arrc = Array.make !lenc 0 in
-(* add arra *)
 for i = 0 to lena-1 do
     arrc.(!lenc-2-i) <- (arrc.(!lenc-2-i) + arra.(lena-1-i));
 done;
@@ -63,17 +62,22 @@ match t1 with
 match t2 with
   TmFrac(fi, _, frcb, lenb, arrb) ->(
 let frcc = max frca frcb in
-let lenc = ref (lena - frca + frcc) in
-let arrc = Array.make (!lenc+1) 0 in
-for i = 0 to !lenc-1 do
-if i < lenb then
-	arrc.(i) <- (arrc.(i) - arrb.(i));
-if i >= ((!lenc) - lena) then
-	arrc.(i) <- (arrc.(i) + arra.(i+lena-(!lenc)));
-while arrc.(i) < 0 do
-	arrc.(i+1) <- (arrc.(i+1) - 1);
-	arrc.(i) <- (arrc.(i) + 10);
+let lenc = ref (lena - frca + frcc + 1) in
+let arrc = Array.make !lenc 0 in
+for i = 0 to lena-1 do
+    arrc.(!lenc-2-i) <- (arrc.(!lenc-2-i) + arra.(lena-1-i));
 done;
+let sti = frcc - frcb in
+for i = sti to sti+lenb-1 do
+    arrc.(i) <- (arrc.(i) - arrb.(i-sti));
+done;
+for i = 1 to !lenc-1 do
+while arrc.(i-1) < 0 do
+	arrc.(i-1) <- (arrc.(i-1) + 10);
+	arrc.(i) <- (arrc.(i) - 1);
+done;
+    arrc.(i) <- (arrc.(i) + arrc.(i-1) / 10);
+    arrc.(i-1) <- arrc.(i-1) mod 10;
 done;
 while (arrc.(!lenc-1) = 0) && (not (!lenc = 1)) do lenc := !lenc - 1; done;
 !lenc, arrc )
@@ -106,8 +110,8 @@ else
 		let lenc, arrc = fabssub t1 t2 in
 		TmFrac(fi, sgna, max frca frcb, lenc, arrc)
 	else
-		let lenc, arrc = fabssub t1 t2 in
-		TmFrac(fi, sgna, max frca frcb, lenc, arrc) )
+		let lenc, arrc = fabssub t2 t1 in
+		TmFrac(fi, sgnb, max frca frcb, lenc, arrc) )
 | TmDenormal(fi, deno2) -> t2
 | _ -> raise (Failure "TmFrac term t2 expected"))
 | TmDenormal(fi, deno1) ->(
@@ -268,3 +272,39 @@ if deno1 = 0 then t1 else
 | TmDenormal(fi, deno2) -> let t' = TmDenormal(fi, 0) in t'
 | _ -> raise (Failure "TmFrac term t2 expected"))
 | _ -> raise (Failure "TmFrac term t1 expected")
+
+
+(* big frac sqrt t v, return sqrt(t) with precision v *)
+let bigsqrt t v = 
+match t with
+  TmFrac(fi, sgn, frc, len, arr) ->(
+if sgn = 0 then
+	raise (Failure "TmFrac(positive) term t expected")
+else
+let lenint = len - frc in
+let lens = ref (lenint+v) in
+let arrs = Array.make !lens 0 in
+for i = !lens-1 downto 0 do
+	let d = ref 0 in
+	let dflag = ref true in
+	for j = 1 to 9 do
+	if !dflag then (
+		let narr = Array.make !lens 0 in
+		for k = 0 to !lens-1 do
+			narr.(k) <- arrs.(k)
+		done;
+		narr.(i) <- j;
+		let ta = TmFrac(fi, 1, 0, !lens, narr) in
+		let nv = bigmul ta ta in
+		let bs = TmFrac(fi, 1, 0, len, arr) in
+		if fabsbeq bs nv then
+			d := j
+		else
+			dflag := false
+	)
+	done;
+	arrs.(i) <- !d
+done;
+while (arrs.(!lens-1) = 0) && (not (!lens = 1)) do lens := !lens - 1 done;
+let t' = TmFrac(fi, 1, v, !lens, arrs) in t' )
+| _ -> raise (Failure "TmFrac(without denormal) term t expected")

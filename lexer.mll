@@ -52,6 +52,7 @@ let reservedWords = [
   ("round", fun i -> Parser.ROUND i);
   ("up", fun i -> Parser.UP i);
   ("down", fun i -> Parser.DOWN i);
+  ("less", fun i -> Parser.LESS i);
 
   
   (* Symbols *)

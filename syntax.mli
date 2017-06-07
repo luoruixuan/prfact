@@ -66,6 +66,7 @@ type term =
   | TmRound of info * term * int
   | TmUp of info * term * int
   | TmDown of info * term * int
+  | TmLess of info * term * term
 
 
 type binding =

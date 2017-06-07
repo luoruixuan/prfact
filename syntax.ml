@@ -67,6 +67,7 @@ type term =
   | TmRound of info * term * int
   | TmUp of info * term * int
   | TmDown of info * term * int
+  | TmLess of info * term * term
 
 type binding =
     NameBind 
@@ -139,8 +140,8 @@ let tymap onvar c tyT =
   | TySource(tyT1) -> TySource(walk c tyT1)
   | TySink(tyT1) -> TySink(walk c tyT1)
   | TyNat -> TyNat
-  | TyFrac -> TyFrac
   | TyRange -> TyRange
+  | TyFrac -> TyFrac
   in walk c tyT
 
 let tmmap onvar ontype c t = 
@@ -188,6 +189,7 @@ let tmmap onvar ontype c t =
   | TmRound(fi,t1,e) -> TmRound(fi, walk c t1, e)
   | TmUp(fi,t1,e) -> TmUp(fi, walk c t1, e)
   | TmDown(fi,t1,e) -> TmDown(fi, walk c t1, e)
+  | TmLess(fi,t1,t2) -> TmLess(fi, walk c t1, walk c t2)
   
   in walk c t
 
@@ -308,6 +310,7 @@ let tmInfo t = match t with
   | TmRound(fi,_,_) -> fi
   | TmUp(fi,_,_) -> fi
   | TmDown(fi,_,_) -> fi
+  | TmLess(fi,_,_) -> fi
 
 
 (* ---------------------------------------------------------------------- *)
@@ -397,8 +400,8 @@ and printty_AType outer ctx tyT = match tyT with
   | TyUnit -> pr "Unit"
   | TyFloat -> pr "Float"
   | TyNat -> pr "Nat"
-  | TyFrac -> pr "Frac"
   | TyRange -> pr "Range"
+  | TyFrac -> pr "Frac"
   | tyT -> pr "("; printty_Type outer ctx tyT; pr ")"
 
 let printty ctx tyT = printty_Type true ctx tyT 
@@ -458,8 +461,6 @@ let rec printtm_Term outer ctx t = match t with
           printtm_Term false ctx t1;
           pr ", ";
           printtm_Term false ctx t2;
-          pr ", ";
-          printtm_Term false ctx t3;
           pr ") "
   | t -> printtm_AppTerm outer ctx t
 

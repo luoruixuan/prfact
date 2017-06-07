@@ -64,8 +64,9 @@ open Syntax
 %token <Support.Error.info> ROUND
 %token <Support.Error.info> UP
 %token <Support.Error.info> DOWN
-%token <Support.Error.info> UFRAC
+%token <Support.Error.info> LESS
 %token <Support.Error.info> URANGE
+%token <Support.Error.info> UFRAC
 
 
 
@@ -209,10 +210,10 @@ AType :
       { fun ctx -> TyFloat }
   | NAT
       { fun ctx -> TyNat }
-  | UFRAC
-      { fun ctx -> TyFrac }
   | URANGE
       { fun ctx -> TyRange }
+  | UFRAC
+      { fun ctx -> TyFrac }
 
 TyBinder :
     /* empty */
@@ -289,6 +290,8 @@ AppTerm :
       { fun ctx -> TmDiv($1, $2 ctx, $3 ctx, 8) }
   | INV PathTerm
       { fun ctx -> TmInv($1, $2 ctx, 8) }
+  | LESS PathTerm PathTerm
+      { fun ctx -> TmLess($1, $2 ctx, $3 ctx) }
   | SETPRECISION PathTerm INTV
       { fun ctx -> TmSetprecision($1, $2 ctx, $3.v) }
   | ROUND PathTerm INTV
@@ -381,13 +384,13 @@ ATerm :
             while (!w<(l-1) && ((String.get ints !w)='0')) do
                 w:=((!w)+1);
             done;
-            if !w=(l-1) then let a = Array.make 1 0 in TmFrac($1.i, 1, 0, 1, a)
+            if !w=(l-1) then let a = Array.make 1 0 in let fr = TmFrac($1.i, 1, 0, 1, a) in TmRange($1.i, fr, fr, TmUnit($1.i))
             else let l'=l-1 - (!w) in
             let a = Array.make l' 0 in
             for i = 0 to (l'-1) do
                 a.(i) <- (int_of_char (String.get ints (l-2-i)) - 48)
             done;
-            TmFrac($1.i, 1, l-1-d, l', a)
+            let fr = TmFrac($1.i, 1, l-1-d, l', a) in TmRange($1.i, fr, fr, TmUnit($1.i))
           in f $1.v
       }
 

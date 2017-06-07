@@ -63,3 +63,25 @@ lambda f:T. lambda x:Nat. f (f x);
 0100.00000;
 00010.000;
 
+
+setprecision (div 8.0 2.0) 20;
+setprecision (div 8.0 0.0) 10;
+
+
+setprecision (add (div 243.5 293.203) (div 23333333.333 233.33)) 8;
+add (div 243.5 293.203) (div 23333333.333 233.33);
+t0 = div 243.5 293.203;
+t1 = div 23333333.333 233.33;
+
+t2 = sub 666666.6666 554433.2211;
+t3 = add t0 t1;
+t4 = mul t3 t2;
+setprecision t0 15;
+setprecision t1 20;
+setprecision t2 4;
+r3 = setprecision t3 8;
+r4 = setprecision t4 10;
+add 233.0 23333.0;
+round r3 10;
+round r4 10;
+less (round r3 10) (round r4 10);

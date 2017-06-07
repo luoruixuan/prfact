@@ -32,7 +32,9 @@ let rec isval ctx t = match t with
 let isrange t = match t with
     TmRange(_,_,_,_) -> true
   | _ -> false
-
+let isfrac t = match t with
+    TmFrac(_,_,_,_,_) -> true
+  | _ -> false
 
 type store = term list  
 let emptystore = []
@@ -50,27 +52,185 @@ let shiftstore i store = List.map (fun t -> termShift i t) store
 exception NoRuleApplies
 
 
-let isvalid f1 f2 = true
+let k = 1024 
+
+let zero fi fh = 
+    let a = Array.make 1 0 in TmFrac(fi, fh, 0, 1, a)
+let one fi fh =
+    let a = Array.make 1 1 in TmFrac(fi, fh, 0, 1, a)
+let biginv f c = 
+    match f with
+    TmFrac(fi,_,_,_,_) -> bigdiv (one fi 1) f c
+    | TmDenormal(fi,_) -> bigdiv (one fi 1) f c
+    | _ -> raise (Failure "Not a frac")
+
+let lessthan f1 f2 =
+    match f1 with
+    TmFrac(_, fh1, fr1, l1, ar1) ->
+        (
+        match f2 with
+        TmFrac(_, fh2, fr2, l2, ar2) ->
+            if (fh1=1) && (fh2=0) then false
+            else if (fh1=0) && (fh2=1) then true
+            else if (fh1=1) then fabsbeq f2 f1
+            else fabsbeq f1 f2
+        | _ -> false
+        )
+    | _ -> false
+let bigmax f1 f2 = 
+    if lessthan f1 f2 then f2 else f1
+let bigmin f1 f2 =
+    if lessthan f1 f2 then f1 else f2
+
+let checkd f =
+    match f with
+    TmFrac(fi, fh, fr, l, ar) ->
+        if (l-fr)>=k then TmDenormal(fi, fh*2-1)
+        else if (fr-l)>=k then zero fi fh
+        else f
+    | _ -> f
+let iszero f = 
+    match f with
+    TmFrac(fi, fh, fr, l, ar) ->
+        if (fr-l)>=k then true
+        else false
+    | _ -> false
+    
+
+let isvalid f1 f2 = 
+    match f1 with
+    TmFrac(_,_,_,_,_) ->
+        (match f2 with
+        TmFrac(_,_,_,_,_) -> true
+        | _ -> false)
+    | TmDenormal(_,d1) ->
+        (match f2 with
+        TmDenormal(_,d2) -> (d1=d2)
+        | _ -> false)
+    | _ -> false
+
+let upfrac f c = 
+    match f with
+    TmDenormal(_,_) -> f
+    | TmFrac(fi, fh, fr, l, ar) ->
+            if fr<=c then f
+            else let newl = l+c-fr in
+            let a1 = Array.make 1 1 in let tf = TmFrac(fi, fh, c, 1, a1) in
+            if newl<=0 then 
+                (
+                    if fh=0 then zero fi fh
+                    else tf
+                )
+            else let a = Array.make newl 0 in
+            for i = (fr-c) to (l-1) do
+                a.(i+c-fr) <- ar.(i);
+            done;
+            let re=TmFrac(fi, fh, c, newl, a) in
+            if fh=0 then re
+            else bigadd re tf
+    | _ -> raise (Failure "Not a frac")
+let downfrac f c = 
+    match f with
+    TmDenormal(_,_) -> f
+    | TmFrac(fi, fh, fr, l, ar) ->
+            if fr<=c then f
+            else let newl = l+c-fr in
+            let a1 = Array.make 1 1 in let tf = TmFrac(fi, fh, c, 1, a1) in
+            if newl<=0 then 
+                (
+                    if fh=1 then zero fi fh
+                    else tf
+                )
+            else let a = Array.make newl 0 in
+            for i = (fr-c) to (l-1) do
+                a.(i+c-fr) <- ar.(i);
+            done;
+            let re=TmFrac(fi, fh, c, newl, a) in
+            if fh=1 then re
+            else bigadd re tf
+    | _ -> raise (Failure "Not a frac")
 let addrange r1 r2 c = 
     match r1 with
     TmRange(fi, fl1, fr1, ft1) ->
         (match r2 with
         TmRange(fi, fl2, fr2, ft2) ->
-            let nl = bigadd fl1 fl2 in
-            let nr = bigadd fr1 fr2 in
-            TmRange(fi, nl, nr, TmAdd(fi, r1,r2,c))
+            let nl = checkd (bigadd fl1 fl2) in
+            let nr = checkd (bigadd fr1 fr2) in
+            TmRange(fi, downfrac nl c, upfrac nr c, TmAdd(fi, r1,r2,c))
     | _ -> raise (Failure "Not a range"))
     | _ -> raise (Failure "Not a range")
-let subrange r1 r2 c = r1
-let mulrange r1 r2 c = r1
-let invrange r c = r
-let todenormal r = r
-let checkinv r = true
-let upfrac f c = f
-let downfrac f c = f
-let maxlog r = 0
+let subrange r1 r2 c = 
+    match r1 with
+    TmRange(fi, fl1, fr1, ft1) ->
+        (match r2 with
+        TmRange(fi, fl2, fr2, ft2) ->
+            let nl = checkd (bigsub fl1 fr2) in
+            let nr = checkd (bigsub fr1 fl2) in
+            TmRange(fi, downfrac nl c, upfrac nr c, TmSub(fi, r1,r2,c))
+    | _ -> raise (Failure "Not a range"))
+    | _ -> raise (Failure "Not a range")
+let mulrange r1 r2 c = 
+    match r1 with
+    TmRange(fi, fl1, fr1, _) ->
+        (
+        match r2 with
+        TmRange(_, fl2, fr2, _) ->
+            let f11 = bigmul fl1 fl2 in
+            let f12 = bigmul fl1 fr2 in
+            let f21 = bigmul fr1 fl2 in
+            let f22 = bigmul fr1 fr2 in
+            let ll = checkd (bigmin (bigmin f11 f12) (bigmin f21 f22)) in
+            let rr = checkd (bigmax (bigmax f11 f12) (bigmax f21 f22)) in
+            TmRange(fi, downfrac ll c, upfrac rr c, TmMul(fi, r1, r2, c))
+        | _ -> raise (Failure "Not a range")
+        )
+    | _ -> raise (Failure "Not a range")
 
-let k = 1024 
+let invrange r c =
+    match r with
+    TmRange(fi, fl, fr, ft) -> 
+        let il = biginv fr (c+1) in
+        let ir = biginv fl (c+1) in
+        TmRange(fi, downfrac il c, upfrac ir c, TmInv(fi, r, c))
+    | _ -> raise (Failure "Not a range")
+
+let todenormal r = 
+    match r with
+    TmRange(fi, f1, f2, ft) -> 
+        (
+            match f1 with 
+            TmFrac(_,_,_,_,_) -> TmRange(fi, f2, f2, ft)
+            | _ -> TmRange(fi, f1, f1, ft)
+        )
+    | _ -> raise (Failure "Not a range")
+let checkinv r = 
+    match r with
+    TmRange(fi, fl, fr, ft) ->
+        let ll = iszero fl in
+        let rr = iszero fr in
+        (
+        match fl with
+        TmFrac(_,fh1,_,_,_) ->
+            (
+            match fr with
+            TmFrac(_,fh2,_,_,_) ->
+                (not ll) && (not rr) && (fh1=fh2)
+            | _ -> raise (Failure "Not a frac")
+            )
+        | _ -> true
+        )
+    | _ -> raise (Failure "Not a range")
+
+let fmaxlog f = 
+    match f with 
+    TmFrac(_,fh,fr,l,ar) -> l-fr+1
+    | TmDenormal(_,_) -> 0
+    | _ -> raise (Failure "Not a frac")
+let maxlog r = 
+    match r with
+    TmRange(_, f1, f2, _) -> max (fmaxlog f1) (fmaxlog f2)
+    | _ -> raise (Failure "Not a range")
+
 
 
 let rec eval1 ctx store t = match t with
@@ -188,8 +348,6 @@ let rec eval1 ctx store t = match t with
       let t1',store' = eval1 ctx store t1 in
       TmIsZero(fi, t1'), store'
   (* New evaluation rules *)
-  (* E-Frac *)
-  | TmFrac(fi,_,_,_,_) -> TmRange(fi,t,t,TmUnit(fi)), store
   (* E-Div *)
   | TmDiv(fi, t1, t2, c) -> TmMul(fi, t1, TmInv(fi, t2, c), c), store
   (* E-Add *)
@@ -262,33 +420,33 @@ let rec eval1 ctx store t = match t with
             (
                 match ft with
                   TmUnit(fi) -> r1, store
-                  | TmAdd(fi, r1, r2, _) -> 
-                      let p1 = TmSetprecision(fi, r1, c+1) in
+                  | TmAdd(fi, r1, r2, cn) -> 
+                      let p1 = TmSetprecision(fi, r1, max (c+1) cn) in
                       let r1', store' = eval1 ctx store p1 in
-                      let p2 = TmSetprecision(fi, r2, c+1) in
+                      let p2 = TmSetprecision(fi, r2, max (c+1) cn) in
                       let r2', store'' = eval1 ctx store' p2 in
                       addrange r1' r2' (c+1), store''
-                  | TmSub(fi, r1, r2, _) -> 
-                      let p1 = TmSetprecision(fi, r1, c+1) in
+                  | TmSub(fi, r1, r2, cn) -> 
+                      let p1 = TmSetprecision(fi, r1, max (c+1) cn) in
                       let r1', store' = eval1 ctx store p1 in
-                      let p2 = TmSetprecision(fi, r2, c+1) in
+                      let p2 = TmSetprecision(fi, r2, max (c+1) cn) in
                       let r2', store'' = eval1 ctx store' p2 in
                       subrange r1' r2' (c+1), store''
-                  | TmMul(fi, r1, r2, _) -> 
-                      let p1 = TmSetprecision(fi, r1, c+1+(maxlog r2)) in
+                  | TmMul(fi, r1, r2, cn) -> 
+                      let p1 = TmSetprecision(fi, r1, max (c+1+(maxlog r2)) cn) in
                       let r1', store' = eval1 ctx store p1 in
-                      let p2 = TmSetprecision(fi, r2, c+1+(maxlog r1)) in
+                      let p2 = TmSetprecision(fi, r2, max (c+1+(maxlog r1)) cn) in
                       let r2', store'' = eval1 ctx store' p2 in
-                      mulrange r1' r2' (c+1), store''
-                  | TmInv(fi, r1, _) ->
-                      let p1 = TmSetprecision(fi, r1, max (c+1+2*(maxlog r1)) 0) in  
+                      mulrange r1' r2' (max (c+1) cn), store''
+                  | TmInv(fi, r1, cn) ->
+                      let p1 = TmSetprecision(fi, r1, max (c+1+2*(maxlog r1)) cn) in  
                       let r1', store' = eval1 ctx store p1 in
-                      invrange r1' (c+1), store'
+                      invrange r1' (max (c+1) cn), store'
                   | _ -> error fi "range from invalid"
             )    
         | _ -> error fi "invalid range"
       )
-  (* E-Round/Up/Down *)
+  (* E-Round/Up/Down/LESS *)
   | TmRound(fi, t1, c) when not (isrange t1) ->
       let t1', store' = eval1 ctx store t1 in
       TmRound(fi, t1', c), store'
@@ -310,6 +468,14 @@ let rec eval1 ctx store t = match t with
           (match r1 with
           TmRange(fi, f1, f2, _) -> downfrac f1 c, store
           | _ -> error fi "not a range")
+  | TmLess(fi, t1, t2) when not (isfrac t1) ->
+          let t1', store' = eval1 ctx store t1 in
+          TmLess(fi, t1', t2), store'
+  | TmLess(fi, f1, t2) when not (isfrac t2) ->
+          let t2', store' = eval1 ctx store t2 in
+          TmLess(fi, f1, t2'), store'
+  | TmLess(fi, f1, f2) -> 
+          let re = if lessthan f1 f2 then TmTrue(fi) else TmFalse(fi) in re, store
   
 
   | _ -> 
@@ -371,8 +537,8 @@ let rec tyeqv ctx tyS tyT =
   | (TyBool,TyBool) -> true
   | (TyNat,TyNat) -> true
 
-  | (TyFrac,TyFrac) -> true
   | (TyRange,TyRange) -> true
+  | (TyFrac,TyFrac) -> true
 
   | (TyRecord(fields1),TyRecord(fields2)) -> 
        List.length fields1 = List.length fields2
@@ -653,30 +819,30 @@ let rec typeof ctx t =
   | TmAdd(fi,t1,t2,_) ->
       let ty1 = typeof ctx t1 in
       let ty2 = typeof ctx t2 in
-      let isrange ty = (tyeqv ctx ty TyRange) || (tyeqv ctx ty TyFrac) in
+      let isrange ty = (tyeqv ctx ty TyRange) in
       if (isrange ty1) && (isrange ty2) then TyRange
       else error fi "argument of an operator is not a range"
   | TmSub(fi,t1,t2,_) ->
       let ty1 = typeof ctx t1 in
       let ty2 = typeof ctx t2 in
-      let isrange ty = (tyeqv ctx ty TyRange) || (tyeqv ctx ty TyFrac) in
+      let isrange ty = (tyeqv ctx ty TyRange) in
       if (isrange ty1) && (isrange ty2) then TyRange
       else error fi "argument of an operator is not a range"
   | TmMul(fi,t1,t2,_) ->
       let ty1 = typeof ctx t1 in
       let ty2 = typeof ctx t2 in
-      let isrange ty = (tyeqv ctx ty TyRange) || (tyeqv ctx ty TyFrac) in
+      let isrange ty = (tyeqv ctx ty TyRange) in
       if (isrange ty1) && (isrange ty2) then TyRange
       else error fi "argument of an operator is not a range"
   | TmDiv(fi,t1,t2,_) ->
       let ty1 = typeof ctx t1 in
       let ty2 = typeof ctx t2 in
-      let isrange ty = (tyeqv ctx ty TyRange) || (tyeqv ctx ty TyFrac) in
+      let isrange ty = (tyeqv ctx ty TyRange) in
       if (isrange ty1) && (isrange ty2) then TyRange
       else error fi "argument of an operator is not a range"
   | TmInv(fi,t1,_) ->
       let ty1 = typeof ctx t1 in
-      let isrange ty = (tyeqv ctx ty TyRange) || (tyeqv ctx ty TyFrac) in
+      let isrange ty = (tyeqv ctx ty TyRange) in
       if (isrange ty1) then TyRange
       else error fi "argument of an operator is not a range"
   | TmRange(fi, t1, t2, t3) ->
@@ -692,7 +858,7 @@ let rec typeof ctx t =
       else error fi "argument of setprecision is not a range"
    | TmRound(fi, t1, _) ->
       let ty1 = typeof ctx t1 in 
-      if (tyeqv ctx ty1 TyRange) || (tyeqv ctx ty1 TyFrac) then TyFrac
+      if (tyeqv ctx ty1 TyRange) then TyFrac
       else error fi "argument of round is invalid"
    | TmUp(fi, t1, _) ->
       let ty1 = typeof ctx t1 in
@@ -702,5 +868,10 @@ let rec typeof ctx t =
       let ty1 = typeof ctx t1 in
       if (tyeqv ctx ty1 TyRange) then TyFrac
       else error fi "argument of down is not a range"
+   | TmLess(fi, t1, t2) ->
+      let ty1 = typeof ctx t1 in
+      let ty2 = typeof ctx t2 in
+      if (tyeqv ctx ty1 TyFrac) && (tyeqv ctx ty2 TyFrac) then TyBool
+      else error fi "argument of less is not a frac"
 
 

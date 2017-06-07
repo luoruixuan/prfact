@@ -68,6 +68,7 @@ type term =
   | TmUp of info * term * term
   | TmDown of info * term * term
   | TmLess of info * term * term
+  | TmTorange of info * term
 
 type binding =
     NameBind 
@@ -190,6 +191,7 @@ let tmmap onvar ontype c t =
   | TmUp(fi,t1,e) -> TmUp(fi, walk c t1, e)
   | TmDown(fi,t1,e) -> TmDown(fi, walk c t1, e)
   | TmLess(fi,t1,t2) -> TmLess(fi, walk c t1, walk c t2)
+  | TmTorange(fi,t1) -> TmTorange(fi, walk c t1)
   
   in walk c t
 
@@ -311,6 +313,7 @@ let tmInfo t = match t with
   | TmUp(fi,_,_) -> fi
   | TmDown(fi,_,_) -> fi
   | TmLess(fi,_,_) -> fi
+  | TmTorange(fi,_) -> fi
 
 
 (* ---------------------------------------------------------------------- *)

@@ -65,6 +65,7 @@ open Syntax
 %token <Support.Error.info> UP
 %token <Support.Error.info> DOWN
 %token <Support.Error.info> LESS
+%token <Support.Error.info> TORANGE
 %token <Support.Error.info> URANGE
 %token <Support.Error.info> UFRAC
 
@@ -300,6 +301,8 @@ AppTerm :
       { fun ctx -> TmUp($1, $2 ctx, $3 ctx) }
   | DOWN PathTerm PathTerm
       { fun ctx -> TmDown($1, $2 ctx, $3 ctx) }
+  | TORANGE PathTerm
+      { fun ctx -> TmTorange($1, $2 ctx) }
 
 PathTerm :
     PathTerm DOT LCID

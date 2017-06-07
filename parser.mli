@@ -41,6 +41,7 @@ type token =
   | UP of (Support.Error.info)
   | DOWN of (Support.Error.info)
   | LESS of (Support.Error.info)
+  | TORANGE of (Support.Error.info)
   | URANGE of (Support.Error.info)
   | UFRAC of (Support.Error.info)
   | UCID of (string Support.Error.withinfo)

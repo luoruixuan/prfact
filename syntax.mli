@@ -67,6 +67,7 @@ type term =
   | TmUp of info * term * term
   | TmDown of info * term * term
   | TmLess of info * term * term
+  | TmTorange of info * term
 
 
 type binding =

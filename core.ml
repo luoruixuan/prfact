@@ -34,6 +34,7 @@ let rec nat2int t =
     match t with
     TmZero(fi) -> fi, 0
   | TmSucc(fi,t1) -> let ff,cc = nat2int t1 in fi,1+cc
+  | t -> printInfo (tmInfo t); error (tmInfo t) "233"
   | _ -> raise (Failure "not a nat")
 let rec int2nat n fi= 
     match n with
@@ -420,6 +421,9 @@ let rec eval1 ctx store t = match t with
       else if (c>=k) then invrange (todenormal r1) c, store
       else TmInv(fi, TmSetprecision(fi, r1, int2nat (c*2) fi), c*2), store
   (* E-Setprecision *)
+  | TmSetprecision(fi, t1, c) when not (isval ctx c) ->
+      let c', store' = eval1 ctx store c in
+      TmSetprecision(fi, t1, c'), store'
   | TmSetprecision(fi, t1, c) when not (isrange t1) ->
       let t1', store' = eval1 ctx store t1 in
       TmSetprecision(fi, t1', c), store'
@@ -458,6 +462,9 @@ let rec eval1 ctx store t = match t with
         | _ -> error fi "invalid range"
       )
   (* E-Round/Up/Down/LESS *)
+  | TmRound(fi, t1, c) when not (isval ctx c) ->
+      let c', store' = eval1 ctx store c in
+      TmRound(fi, t1, c'), store'
   | TmRound(fi, t1, c) when not (isrange t1) ->
       let t1', store' = eval1 ctx store t1 in
       TmRound(fi, t1', c), store'
@@ -466,6 +473,9 @@ let rec eval1 ctx store t = match t with
           (match r1 with
           TmRange(fi, f1, f2, _) -> f1, store
           | _ -> error fi "not a range")
+  | TmUp(fi, t1, c) when not (isval ctx c) ->
+      let c', store' = eval1 ctx store c in
+      TmUp(fi, t1, c'), store'
   | TmUp(fi, t1, c) when not (isrange t1) ->
       let t1', store' = eval1 ctx store t1 in
       TmUp(fi, t1', c), store'
@@ -474,6 +484,9 @@ let rec eval1 ctx store t = match t with
           (match r1 with
           TmRange(fi, f1, f2, _) -> upfrac f2 c, store
           | _ -> error fi "not a range")
+  | TmDown(fi, t1, c) when not (isval ctx c) ->
+      let c', store' = eval1 ctx store c in
+      TmDown(fi, t1, c'), store'
   | TmDown(fi, t1, c) when not (isrange t1) ->
       let t1', store' = eval1 ctx store t1 in
       TmDown(fi, t1', c), store'
@@ -490,7 +503,11 @@ let rec eval1 ctx store t = match t with
           TmLess(fi, f1, t2'), store'
   | TmLess(fi, f1, f2) -> 
           let re = if lessthan f1 f2 then TmTrue(fi) else TmFalse(fi) in re, store
-  
+ 
+  | TmTorange(fi, t1) when not (isfrac t1) ->
+          let t1', store' = eval1 ctx store t1 in
+	  TmTorange(fi, t1'), store'
+  | TmTorange(fi, f1) -> TmRange(fi, f1, f1, TmUnit(fi)), store
 
   | _ -> 
       raise NoRuleApplies
@@ -891,5 +908,8 @@ let rec typeof ctx t =
       let ty2 = typeof ctx t2 in
       if (tyeqv ctx ty1 TyFrac) && (tyeqv ctx ty2 TyFrac) then TyBool
       else error fi "argument of less is not a frac"
-
+   | TmTorange(fi, t1) ->
+      let ty1 = typeof ctx t1 in
+      if (tyeqv ctx ty1 TyFrac) then TyRange
+      else error fi "argument of torange is not a frac"
 

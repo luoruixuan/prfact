@@ -42,6 +42,8 @@ let reservedWords = [
   ("Source", fun i -> Parser.SSOURCE i);
   ("Sink", fun i -> Parser.SSINK i);
   ("Nat", fun i -> Parser.NAT i);
+  ("Frac", fun i -> Parser.UFRAC i);
+  ("Range", fun i -> Parser.URANGE i);
   
   ("add", fun i -> Parser.ADD i);
   ("sub", fun i -> Parser.SUB i);
@@ -53,6 +55,7 @@ let reservedWords = [
   ("up", fun i -> Parser.UP i);
   ("down", fun i -> Parser.DOWN i);
   ("less", fun i -> Parser.LESS i);
+  ("torange", fun i -> Parser.TORANGE i);
 
   
   (* Symbols *)

@@ -461,39 +461,20 @@ let rec eval1 ctx store t = match t with
             )    
         | _ -> error fi "invalid range"
       )
-  (* E-Round/Up/Down/LESS *)
-  | TmRound(fi, t1, c) when not (isval ctx c) ->
-      let c', store' = eval1 ctx store c in
-      TmRound(fi, t1, c'), store'
-  | TmRound(fi, t1, c) when not (isrange t1) ->
+  (* E-Up/Down/LESS *)
+  | TmUp(fi, t1) when not (isrange t1) ->
       let t1', store' = eval1 ctx store t1 in
-      TmRound(fi, t1', c), store'
-  | TmRound(fi, r1, cc) -> 
-          let _,c = nat2int cc in
+      TmUp(fi, t1'), store'
+  | TmUp(fi, r1) -> 
+          (match r1 with
+          TmRange(fi, f1, f2, _) -> f2, store
+          | _ -> error fi "not a range")
+  | TmDown(fi, t1) when not (isrange t1) ->
+      let t1', store' = eval1 ctx store t1 in
+      TmDown(fi, t1'), store'
+  | TmDown(fi, r1) -> 
           (match r1 with
           TmRange(fi, f1, f2, _) -> f1, store
-          | _ -> error fi "not a range")
-  | TmUp(fi, t1, c) when not (isval ctx c) ->
-      let c', store' = eval1 ctx store c in
-      TmUp(fi, t1, c'), store'
-  | TmUp(fi, t1, c) when not (isrange t1) ->
-      let t1', store' = eval1 ctx store t1 in
-      TmUp(fi, t1', c), store'
-  | TmUp(fi, r1, cc) -> 
-          let _,c = nat2int cc in
-          (match r1 with
-          TmRange(fi, f1, f2, _) -> upfrac f2 c, store
-          | _ -> error fi "not a range")
-  | TmDown(fi, t1, c) when not (isval ctx c) ->
-      let c', store' = eval1 ctx store c in
-      TmDown(fi, t1, c'), store'
-  | TmDown(fi, t1, c) when not (isrange t1) ->
-      let t1', store' = eval1 ctx store t1 in
-      TmDown(fi, t1', c), store'
-  | TmDown(fi, r1, cc) -> 
-          let _,c = nat2int cc in
-          (match r1 with
-          TmRange(fi, f1, f2, _) -> downfrac f1 c, store
           | _ -> error fi "not a range")
   | TmLess(fi, t1, t2) when not (isfrac t1) ->
           let t1', store' = eval1 ctx store t1 in
@@ -888,20 +869,13 @@ let rec typeof ctx t =
       let ty2 = typeof ctx t2 in
       if (tyeqv ctx ty1 TyRange) && (tyeqv ctx ty2 TyNat) then TyRange
       else error fi "argument of setprecision is not a range"
-   | TmRound(fi, t1, t2) ->
-      let ty1 = typeof ctx t1 in 
-      let ty2 = typeof ctx t2 in
-      if (tyeqv ctx ty1 TyRange) && (tyeqv ctx ty2 TyNat) then TyFrac
-      else error fi "argument of round is invalid"
-   | TmUp(fi, t1, t2) ->
+   | TmUp(fi, t1) ->
       let ty1 = typeof ctx t1 in
-      let ty2 = typeof ctx t2 in
-      if (tyeqv ctx ty1 TyRange) && (tyeqv ctx ty2 TyNat) then TyFrac
+      if (tyeqv ctx ty1 TyRange) then TyFrac
       else error fi "argument of up is not a range"
-   | TmDown(fi, t1, t2) ->
+   | TmDown(fi, t1) ->
       let ty1 = typeof ctx t1 in
-      let ty2 = typeof ctx t2 in
-      if (tyeqv ctx ty1 TyRange) && (tyeqv ctx ty2 TyNat) then TyFrac
+      if (tyeqv ctx ty1 TyRange) then TyFrac
       else error fi "argument of down is not a range"
    | TmLess(fi, t1, t2) ->
       let ty1 = typeof ctx t1 in

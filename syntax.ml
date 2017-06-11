@@ -64,9 +64,8 @@ type term =
   | TmInv of info * term * int
   | TmRange of info * term * term * term
   | TmSetprecision of info * term * term
-  | TmRound of info * term * term
-  | TmUp of info * term * term
-  | TmDown of info * term * term
+  | TmUp of info * term
+  | TmDown of info * term
   | TmLess of info * term * term
   | TmTorange of info * term
 
@@ -186,10 +185,9 @@ let tmmap onvar ontype c t =
   | TmDiv(fi,t1,t2,e) -> TmDiv(fi, walk c t1, walk c t2, e)
   | TmInv(fi,t1,e) -> TmInv(fi, walk c t1, e)
   | TmRange(fi,t1,t2,t3) -> TmRange(fi, walk c t1, walk c t2, walk c t3)
-  | TmSetprecision(fi, t1, e) -> TmSetprecision(fi, walk c t1, e)
-  | TmRound(fi,t1,e) -> TmRound(fi, walk c t1, e)
-  | TmUp(fi,t1,e) -> TmUp(fi, walk c t1, e)
-  | TmDown(fi,t1,e) -> TmDown(fi, walk c t1, e)
+  | TmSetprecision(fi, t1, e) -> TmSetprecision(fi, walk c t1, walk c e)
+  | TmUp(fi,t1) -> TmUp(fi, walk c t1)
+  | TmDown(fi,t1) -> TmDown(fi, walk c t1)
   | TmLess(fi,t1,t2) -> TmLess(fi, walk c t1, walk c t2)
   | TmTorange(fi,t1) -> TmTorange(fi, walk c t1)
   
@@ -309,9 +307,8 @@ let tmInfo t = match t with
   | TmInv(fi,_,_) -> fi
   | TmRange(fi,_,_,_) -> fi
   | TmSetprecision(fi,_,_) -> fi
-  | TmRound(fi,_,_) -> fi
-  | TmUp(fi,_,_) -> fi
-  | TmDown(fi,_,_) -> fi
+  | TmUp(fi,_) -> fi
+  | TmDown(fi,_) -> fi
   | TmLess(fi,_,_) -> fi
   | TmTorange(fi,_) -> fi
 

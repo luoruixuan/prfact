@@ -61,7 +61,6 @@ open Syntax
 %token <Support.Error.info> INV
 %token <Support.Error.info> RANGE
 %token <Support.Error.info> SETPRECISION
-%token <Support.Error.info> ROUND
 %token <Support.Error.info> UP
 %token <Support.Error.info> DOWN
 %token <Support.Error.info> LESS
@@ -295,12 +294,10 @@ AppTerm :
       { fun ctx -> TmLess($1, $2 ctx, $3 ctx) }
   | SETPRECISION PathTerm PathTerm
       { fun ctx -> TmSetprecision($1, $2 ctx, $3 ctx) }
-  | ROUND PathTerm PathTerm
-      { fun ctx -> TmRound($1, $2 ctx, $3 ctx) }
-  | UP PathTerm PathTerm
-      { fun ctx -> TmUp($1, $2 ctx, $3 ctx) }
-  | DOWN PathTerm PathTerm
-      { fun ctx -> TmDown($1, $2 ctx, $3 ctx) }
+  | UP PathTerm
+      { fun ctx -> TmUp($1, $2 ctx) }
+  | DOWN PathTerm
+      { fun ctx -> TmDown($1, $2 ctx) }
   | TORANGE PathTerm
       { fun ctx -> TmTorange($1, $2 ctx) }
 

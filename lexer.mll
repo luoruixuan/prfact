@@ -51,7 +51,6 @@ let reservedWords = [
   ("div", fun i -> Parser.DIV i);
   ("inv", fun i -> Parser.INV i);
   ("setprecision", fun i -> Parser.SETPRECISION i);
-  ("round", fun i -> Parser.ROUND i);
   ("up", fun i -> Parser.UP i);
   ("down", fun i -> Parser.DOWN i);
   ("less", fun i -> Parser.LESS i);
